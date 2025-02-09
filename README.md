@@ -10,7 +10,11 @@ Ensure you have the following installed on your machine:
 
 ## Installation
 
-1. Unzip the folder
+1.  Clone the repository:
+   ```sh
+     git clone https://github.com/Abirami-Manisa/nectar-it-restaurant-order-stats.git
+     cd nectar-it-restaurant-order-stats
+   ```
 
 2. Install dependencies:
    ```sh
