@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useRef } from "react";
+import { TbInfoHexagonFilled } from "react-icons/tb";
 import { Bar, Pie, Scatter } from "react-chartjs-2";
-import { Chart as ChartJS } from "chart.js/auto"; // Import ChartJS for auto registration
-import data from "../assets/data.json"; // Import your JSON data
-import moment from "moment"; // For time formatting (install: npm install moment)
+import { Chart as ChartJS } from "chart.js/auto";
+import data from "../assets/data.json";
+import moment from "moment";
+import InsightsModal from "./InsightsModal";
+import { chartInsights } from "../assets/chartInsights";
 
 const Dashboard = () => {
+  const [selectedInsight, setSelectedInsight] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const [chartData, setChartData] = useState({
     highestSoldItems: null,
     rateVsQuantity: null,
     ordersPerDeliveryPerson: null,
     orderPreferences: null,
     orderProcessingTime: null,
+    orderDistributionByMiles: null,
   });
   const [orderProcessingTimes, setOrderProcessingTimes] = useState([]);
   const [orderDistribution, setOrderDistribution] = useState({});
@@ -19,8 +26,13 @@ const Dashboard = () => {
   const ordersPerDeliveryPersonRef = useRef(null);
   const orderPreferencesRef = useRef(null);
 
+  const openModal = (insight) => {
+    setSelectedInsight(insight);
+    setIsModalOpen(true);
+  };
+
   useEffect(() => {
-    const newChartData = { ...chartData }; // Create a copy
+    const newChartData = { ...chartData };
 
     // 1. Highest Sold Items
     const itemCounts = {};
@@ -182,16 +194,28 @@ const Dashboard = () => {
 
     data.forEach((order) => {
       const miles = order.Miles;
-
       if (miles !== undefined && miles !== null) {
         orderDistributionByMiles[miles] =
           (orderDistributionByMiles[miles] || 0) + 1;
       } else {
         console.warn(
-          `Order ${order.Order_ID} is missing or has invalid 'miles' data.`
+          `Order ${order.Order_ID} is missing or has invalid 'Miles' data.`
         );
       }
     });
+
+    newChartData.orderDistribution = {
+      labels: Object.keys(orderDistributionByMiles),
+      datasets: [
+        {
+          label: "Number of Orders",
+          data: Object.values(orderDistributionByMiles),
+          backgroundColor: "rgba(54, 162, 235, 0.5)",
+          borderColor: "rgba(54, 162, 235, 1)",
+          borderWidth: 1,
+        },
+      ],
+    };
     setOrderDistribution(orderDistributionByMiles);
     setChartData(newChartData);
 
@@ -373,102 +397,65 @@ const Dashboard = () => {
     <div className="container mx-auto p-4 w-full h-screen">
       <h1 className="text-2xl font-bold mb-4">Restaurant Statistics</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Highest Sold Items */}
-        <div
-          className="bg-white rounded shadow p-4"
-          style={{ width: "100%", height: "400px" }}
-        >
-          <h2 className="text-lg font-semibold mb-2">Highest Sold Items</h2>
-          {chartData.highestSoldItems && (
-            <Bar
-              key="highestSoldItemsChart"
-              data={chartData.highestSoldItems}
-              options={highestSoldItemsOptions}
-              height={300}
-              ref={highestSoldItemsRef}
-            />
-          )}
-        </div>
-
-        {/* Rate vs Quantity */}
-        <div
-          className="bg-white rounded shadow p-4"
-          style={{ width: "100%", height: "400px" }}
-        >
-          <h2 className="text-lg font-semibold mb-2">Rate vs Quantity</h2>
-          {chartData.rateVsQuantity && (
-            <Scatter
-              key="rateVsQuantityChart"
-              data={chartData.rateVsQuantity}
-              options={rateVsQuantityOptions}
-              height={300}
-            />
-          )}
-        </div>
-
-        {/* Order Processing Time */}
-        <div
-          className="bg-white rounded shadow p-4"
-          style={{ width: "100%", height: "400px" }}
-        >
-          <h2 className="text-lg font-semibold mb-2">Order Processing Time</h2>
-          {chartData.orderProcessingTime && (
-            <Scatter
-              key="orderProcessingTimeChart"
-              data={orderProcessingTimeData}
-              options={orderProcessingTimeOptions}
-              height={300}
-            />
-          )}
-        </div>
-
-        {/* Orders per Delivery Person */}
-        <div className="bg-white rounded shadow p-4">
-          <h2 className="text-lg font-semibold mb-2">
-            Orders per Delivery Person
-          </h2>
-          {chartData.ordersPerDeliveryPerson && (
-            <Pie
-              key="ordersPerDeliveryPersonChart"
-              data={chartData.ordersPerDeliveryPerson}
-              height={300}
-              ref={ordersPerDeliveryPersonRef}
-            />
-          )}
-        </div>
-
-        {/* Order Preferences */}
-        <div className="bg-white rounded shadow p-4">
-          <h2 className="text-lg font-semibold mb-2">Order Preferences</h2>
-          {chartData.orderPreferences && (
-            <Pie
-              key="orderPreferencesChart"
-              data={chartData.orderPreferences}
-              height={300}
-              ref={orderPreferencesRef}
-            />
-          )}
-        </div>
-
-        {/* Order Distribution */}
-        <div
-          className="bg-white rounded shadow p-4"
-          style={{ width: "100%", height: "550px" }}
-        >
-          <h2 className="text-lg font-semibold mb-2">
-            Order Distribution by Miles
-          </h2>
-          {Object.keys(orderDistribution).length > 0 ? (
-            <Bar
-              data={orderDistributionData}
-              options={orderDistributionOptions}
-              height={300}
-            />
-          ) : (
-            <p>No order distribution data available.</p>
-          )}
-        </div>
+        {chartInsights.map((item) => (
+          <div key={item.key} className="bg-white rounded shadow p-4">
+            <div className="flex justify-between">
+              <h2 className="text-lg font-semibold">{item.title}</h2>
+              <TbInfoHexagonFilled
+                className="cursor-pointer text-gray-500"
+                onClick={() => openModal(item)}
+              />
+            </div>
+            {chartData[item.key] ? (
+              item.key === "orderDistribution" ? (
+                Object.keys(orderDistribution).length > 0 ? (
+                  <Bar data={chartData[item.key]} height={300} />
+                ) : (
+                  <p>No order distribution data available.</p>
+                )
+              ) : item.key === "highestSoldItems" ? (
+                <Bar data={chartData[item.key]} height={300} />
+              ) : item.key === "rateVsQuantity" ||
+                item.key === "orderProcessingTime" ? (
+                <div
+                  className="bg-white rounded shadow p-4"
+                  style={{ width: "100%", height: "400px" }}
+                >
+                  <Scatter
+                    key={
+                      item.key === "rateVsQuantity"
+                        ? "rateVsQuantityChart"
+                        : "orderProcessingTimeChart"
+                    }
+                    data={
+                      item.key === "rateVsQuantity"
+                        ? chartData.rateVsQuantity
+                        : orderProcessingTimeData
+                    }
+                    options={
+                      item.key === "rateVsQuantity"
+                        ? rateVsQuantityOptions
+                        : orderProcessingTimeOptions
+                    }
+                    height={300}
+                  />
+                </div>
+              ) : (
+                <Pie data={chartData[item.key]} height={300} />
+              )
+            ) : (
+              <p>No data available.</p>
+            )}
+          </div>
+        ))}
       </div>
+
+      {/* Insights Modal */}
+      <InsightsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        insight={selectedInsight}
+      />
     </div>
   );
 };
